@@ -1,6 +1,7 @@
-idf_component_register(SRCS "main.c"
-                    INCLUDE_DIRS ""
+idf_component_register(SRCS "main.c" "ulp_init.c"
+                    INCLUDE_DIRS "."
                     REQUIRES soc nvs_flash ulp driver esp_adc)
+
 #
 # ULP support additions to component CMakeLists.txt.
 #

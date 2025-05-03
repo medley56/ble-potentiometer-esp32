@@ -39,11 +39,6 @@
 	/* Define variables, which go into .bss section (zero-initialized data) */
 	.bss
 
-	/* Counter of measurements done */
-	.global sample_counter
-sample_counter:
-	.long 0
-
 	.global last_result
 last_result:
 	.long 0
@@ -52,12 +47,6 @@ last_result:
 	.text
 	.global entry
 entry:
-	/* increment sample counter */
-	move r3, sample_counter
-	ld r2, r3, 0
-	add r2, r2, 1
-	st r2, r3, 0
-
 	/* do measurements using ADC */
 	/* r0 will be used as accumulator */
 	move r0, 0
