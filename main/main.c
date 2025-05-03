@@ -21,9 +21,14 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
+#include "esp_log.h"
 
 #define ADC_CHANGE_TOL           3  // ADC value change that triggers update
 #define ADC_CHANGE_POLL_PERIOD  20  // in ms
+
+/* Task that checks for new values from the ULP and publishes them to a queue */
+void ulp_value_publisher(void *pvParameters);
 
 void app_main(void)
 {
@@ -39,18 +44,42 @@ void app_main(void)
     start_ulp_program();
     printf("ULP program started\n");
 
+    QueueHandle_t ulp_value_queue = xQueueCreate(10, sizeof(uint32_t));
+    if (ulp_value_queue == NULL) {
+        ESP_LOGE("ULP", "Failed to create queue");
+    }
+
+    xTaskCreatePinnedToCore(
+        ulp_value_publisher,
+        "ulp_value_publisher_task",
+        2048,
+        (void *)ulp_value_queue,  // Pass queue as parameter to task
+        5,
+        NULL,
+        1  // Pin to Core 1. Core 0 is doing other stuff.
+    );
+}
+
+
+void ulp_value_publisher(void *pvParameters)
+{
+    QueueHandle_t value_queue = (QueueHandle_t)pvParameters;
+    TickType_t poll_period_ticks = pdMS_TO_TICKS(ADC_CHANGE_POLL_PERIOD);
     uint32_t ulp_previous_result = ulp_last_result;
     uint32_t adc_diff;
     while (true) {
         // Delay so we're not constantly spinning
-        vTaskDelay(pdMS_TO_TICKS(ADC_CHANGE_POLL_PERIOD));
+        vTaskDelay(poll_period_ticks);
         // Calculate if the ADC changed more than the specified tolerance
         adc_diff = (ulp_previous_result > ulp_last_result) ? (ulp_previous_result - ulp_last_result) : (ulp_last_result - ulp_previous_result);
         if (adc_diff > ADC_CHANGE_TOL) {
             printf("ADC value changed! Latest value reported by ULP program is %"PRIu32"\n", 
                    ulp_last_result & UINT16_MAX);
+            BaseType_t result = xQueueSend(value_queue, &ulp_last_result, 0);
+            if (result != pdPASS) {
+                printf("Failed to push value to queue. This may mean that the subscriber is not consuming data fast enough.");
+            }
             ulp_previous_result = ulp_last_result;
         }
     }
-
 }
