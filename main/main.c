@@ -31,13 +31,18 @@
 
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[]   asm("_binary_ulp_main_bin_end");
+extern uint32_t ulp_tolerance;
+extern uint32_t ulp_last_result;
+
+#define ADC_CHANGE_TOL   5  // ADC value change that triggers update
+#define ADC_CHANGE_POLL_PERIOD  20  // in ticks 
 
 /* This function is called once after power-on reset, to load ULP program into
  * RTC memory and configure the ADC.
  */
 static void init_ulp_program(void);
 
-/* This function is called every time before going into deep sleep.
+/* This function is called during initialization.
  * It starts the ULP program and resets measurement counter.
  */
 static void start_ulp_program(void);
@@ -50,29 +55,26 @@ void app_main(void)
     *  has time to monitor any output.
     */
     vTaskDelay(pdMS_TO_TICKS(1000));
-
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
     if (cause != ESP_SLEEP_WAKEUP_ULP) {
         printf("Not ULP wakeup\n");
         init_ulp_program();
-    } else {
-        printf("Deep sleep wakeup\n");
-        printf("ULP did %"PRIu32" measurements since last reset\n", ulp_sample_counter & UINT16_MAX);
-        printf("Thresholds:  low=%"PRIu32"  high=%"PRIu32"\n", ulp_low_thr, ulp_high_thr);
-        ulp_last_result &= UINT16_MAX;
-        printf("Value=%"PRIu32" was %s threshold\n", ulp_last_result,
-                ulp_last_result < ulp_low_thr ? "below" : "above");
     }
-    printf("Entering deep sleep\n\n");
+
+    printf("Starting main application\n");
     start_ulp_program();
-    ESP_ERROR_CHECK( esp_sleep_enable_ulp_wakeup() );
+    printf("ULP program started\n");
 
-#if !CONFIG_IDF_TARGET_ESP32
-    /* RTC peripheral power domain needs to be kept on to keep SAR ADC related configs during sleep */
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-#endif
+    uint32_t ulp_previous_result = ulp_last_result;
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(ADC_CHANGE_POLL_PERIOD));
+        if (abs(ulp_last_result - ulp_previous_result) > ADC_CHANGE_TOL) {
+            printf("ADC value changed! Latest value reported by ULP program is %"PRIu32"\n", 
+                   ulp_last_result & UINT16_MAX);
+            ulp_previous_result = ulp_last_result;
+        }
+    }
 
-    esp_deep_sleep_start();
 }
 
 static void init_ulp_program(void)
@@ -82,20 +84,21 @@ static void init_ulp_program(void)
     ESP_ERROR_CHECK(err);
 
     ulp_adc_cfg_t cfg = {
-        .adc_n    = EXAMPLE_ADC_UNIT,
-        .channel  = EXAMPLE_ADC_CHANNEL,
-        .width    = EXAMPLE_ADC_WIDTH,
-        .atten    = EXAMPLE_ADC_ATTEN,
+        .adc_n    = ULP_ADC_UNIT,
+        .channel  = ULP_ADC_CHANNEL,
+        .width    = ULP_ADC_BITWIDTH,
+        .atten    = ULP_ADC_ATTEN,
         .ulp_mode = ADC_ULP_MODE_FSM,
     };
 
     ESP_ERROR_CHECK(ulp_adc_init(&cfg));
 
-    ulp_low_thr = EXAMPLE_ADC_LOW_TRESHOLD;
-    ulp_high_thr = EXAMPLE_ADC_HIGH_TRESHOLD;
-
-    /* Set ULP wake up period to 20ms */
-    ulp_set_wakeup_period(0, 20000);
+    /* Set ULP wake up period to 200ms (5Hz).
+     * This sets the SENS_ULP_CP_SLEEP_CYC0_REG.
+     * There are 5 of these registers available (CYC0..CYC4) but 0 is used 
+     * by default on ESP32 boards. 
+     */
+    ulp_set_wakeup_period(0, 200000);
 
 #if CONFIG_IDF_TARGET_ESP32
     /* Disconnect GPIO12 and GPIO15 to remove current drain through

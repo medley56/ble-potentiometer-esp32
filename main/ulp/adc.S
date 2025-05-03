@@ -29,7 +29,7 @@
 #include "soc/soc_ulp.h"
 #include "ulp_config.h"
 
-	.set adc_channel, EXAMPLE_ADC_CHANNEL
+	.set adc_channel, ULP_ADC_CHANNEL
 
 	/* Configure the number of ADC samples to average on each measurement.
 	   For convenience, make it a power of 2. */
@@ -38,18 +38,6 @@
 
 	/* Define variables, which go into .bss section (zero-initialized data) */
 	.bss
-
-	/* Low threshold of ADC reading.
-	   Set by the main program. */
-	.global low_thr
-low_thr:
-	.long 0
-
-	/* High threshold of ADC reading.
-	   Set by the main program. */
-	.global high_thr
-high_thr:
-	.long 0
 
 	/* Counter of measurements done */
 	.global sample_counter
@@ -86,35 +74,9 @@ measure:
 	/* divide accumulator by adc_oversampling_factor.
 	   Since it is chosen as a power of two, use right shift */
 	rsh r0, r0, adc_oversampling_factor_log
+
 	/* averaged value is now in r0; store it into last_result */
 	move r3, last_result
 	st r0, r3, 0
 
-	/* compare with low_thr; wake up if value < low_thr */
-	move r3, low_thr
-	ld r3, r3, 0
-	sub r3, r0, r3
-	jump wake_up, ov
-
-	/* compare with high_thr; wake up if value > high_thr */
-	move r3, high_thr
-	ld r3, r3, 0
-	sub r3, r3, r0
-	jump wake_up, ov
-
-	/* value within range, end the program */
-	.global exit
-exit:
-	halt
-
-	.global wake_up
-wake_up:
-	/* Check if the system can be woken up */
-	READ_RTC_FIELD(RTC_CNTL_LOW_POWER_ST_REG, RTC_CNTL_RDY_FOR_WAKEUP)
-	and r0, r0, 1
-	jump exit, eq
-
-	/* Wake up the SoC, end program */
-	wake
-	WRITE_RTC_FIELD(RTC_CNTL_STATE0_REG, RTC_CNTL_ULP_CP_SLP_TIMER_EN, 0)
 	halt
