@@ -16,9 +16,10 @@ Values are dequeued and published via BLE on Core 0
 #include "freertos/queue.h"
 #include "esp_log.h"
 
-/* ULP-related headers */
+/* Application module headers */
 #include "ulp_main.h"  // interface to ULP assembly file
 #include "publisher.h"
+#include "ble.h"
 
 #define QUEUE_WAIT_TICKS        pdMS_TO_TICKS(200)  // Time to wait when retrieving from queue
 #define MAIN_LOG_NAME "MAIN"
@@ -64,6 +65,8 @@ void app_main(void)
         NULL,
         0
     );
+
+    ble_init();
 }
 
 
