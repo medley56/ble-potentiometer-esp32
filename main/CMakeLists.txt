@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.c" "ulp_init.c"
+idf_component_register(SRCS "main.c" "publisher.c"
                     INCLUDE_DIRS "."
                     REQUIRES soc nvs_flash ulp driver esp_adc)
 

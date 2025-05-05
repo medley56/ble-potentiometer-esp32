@@ -1,8 +1,5 @@
-/*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Unlicense OR CC0-1.0
- */
+/* Configuration for adc.S ULP FSM program */
+
 #pragma once
 
 /* Ints are used here to be able to include the file in assembly as well */
