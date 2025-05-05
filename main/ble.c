@@ -56,18 +56,18 @@ static void nimble_host_task(void *param) {
     vTaskDelete(NULL);
 }
 
-static void heart_rate_task(void *param) {
+static void potentiometer_task(void *param) {
     /* Task entry log */
-    ESP_LOGI(TAG, "heart rate task has been started!");
+    ESP_LOGI(TAG, "potentiometer task has been started!");
 
     /* Loop forever */
     while (1) {
         /* Update heart rate value every 1 second */
         // update_heart_rate();
-        ESP_LOGI(TAG, "heart rate updated to %d", 16);
+        ESP_LOGI(TAG, "potentiometer updated to %d", 16);
 
-        /* Send heart rate indication if enabled */
-        send_heart_rate_indication();
+        /* Send potentiometer indication if enabled by client via CCCD */
+        send_potentiometer_indication();
 
         /* Sleep */
         vTaskDelay(pdMS_TO_TICKS(200));
@@ -86,7 +86,7 @@ void ble_init(void) {
 
     /*
      * NVS flash initialization
-     * Dependency of BLE stack to store configurations
+     * Dependency of BLE stack to store configurations between resets
      */
     ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -99,7 +99,12 @@ void ble_init(void) {
         return;
     }
 
-    /* NimBLE stack initialization */
+    /* NimBLE stack initialization 
+    
+    This initializes the BLE host. Don't need to understand much here. 
+    To change the way it initializes, change parameters in the ESP-IDF configuration
+    e.g. CONFIG_BT_CONTROLLER_ENABLED
+    */
     ret = nimble_port_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to initialize nimble stack, error code: %d ",
@@ -126,6 +131,6 @@ void ble_init(void) {
 
     /* Start NimBLE host task thread and return */
     xTaskCreate(nimble_host_task, "NimBLE Host", 4*1024, NULL, 5, NULL);
-    xTaskCreate(heart_rate_task, "Heart Rate", 4*1024, NULL, 5, NULL);
+    xTaskCreate(potentiometer_task, "Potentiometer", 4*1024, NULL, 5, NULL);
     return;
 }

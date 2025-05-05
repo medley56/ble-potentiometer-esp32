@@ -55,8 +55,15 @@ static void start_advertising(void) {
     /* Local variables */
     int rc = 0;
     const char *name;
+    /* Advertisement fields, included in initial advertisement packets, 
+    which are limited to 31 bytes */
     struct ble_hs_adv_fields adv_fields = {0};
+    /* Scan response fields, sent as a response to a scan request 
+    Typically these are fields that don't fit into the advertisement packet */
     struct ble_hs_adv_fields rsp_fields = {0};
+    /* Advertisement parameters, configures the advertising process, not the data 
+    e.g. connection mode (undirected/directed)
+    */
     struct ble_gap_adv_params adv_params = {0};
 
     /* Set advertising flags */
@@ -107,7 +114,7 @@ static void start_advertising(void) {
         return;
     }
 
-    /* Set non-connetable and general discoverable mode to be a beacon */
+    /* Set undirected connectable and general discoverable mode to be a beacon */
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
 
@@ -292,10 +299,22 @@ int gap_init(void) {
     /* Local variables */
     int rc = 0;
 
-    /* Call NimBLE GAP initialization API */
+    /* Call NimBLE GAP initialization API
+    
+    This initializes the GAP service and also creates standard but optional GATT
+    service characteristics to expose the device "Appearance" and "Device Name".
+    Technically these aren't required to run a GAP service but it's expected 
+    that any GAP device will make its name and appearance available via GATT.
+
+    Note: This GAP GATT service gets the standard UUID 0x1800 per the Bluetooth SIG standard
+    */
     ble_svc_gap_init();
 
-    /* Set GAP device name */
+    /* Set GAP device name
+    
+    This updates the device name in memory so that the GAP Service (via GATT) 
+    that we just set up above will send the correct device name characteristic 
+    */
     rc = ble_svc_gap_device_name_set(DEVICE_NAME);
     if (rc != 0) {
         ESP_LOGE(TAG, "failed to set device name to %s, error code: %d",

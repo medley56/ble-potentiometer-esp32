@@ -8,33 +8,33 @@
 #include "common.h"
 
 /* Private function declarations */
-static int heart_rate_chr_access(uint16_t conn_handle, uint16_t attr_handle,
+static int potentiometer_chr_access(uint16_t conn_handle, uint16_t attr_handle,
                                  struct ble_gatt_access_ctxt *ctxt, void *arg);
 
 /* Private variables */
-/* Heart rate service */
-static const ble_uuid16_t heart_rate_svc_uuid = BLE_UUID16_INIT(0x180D);
+/* Volume Control Service (potentiometer is just a dial) */
+static const ble_uuid16_t potentiometer_svc_uuid = BLE_UUID16_INIT(0x1844);
 
-static uint8_t heart_rate_chr_val[2] = {0};
-static uint16_t heart_rate_chr_val_handle;
-static const ble_uuid16_t heart_rate_chr_uuid = BLE_UUID16_INIT(0x2A37);
+static uint8_t potentiometer_chr_val[2] = {0};
+static uint16_t potentiometer_chr_val_handle;
+static const ble_uuid16_t potentiometer_chr_uuid = BLE_UUID16_INIT(0x2B7D);
 
-static uint16_t heart_rate_chr_conn_handle = 0;
-static bool heart_rate_chr_conn_handle_inited = false;
-static bool heart_rate_ind_status = false;
+static uint16_t potentiometer_chr_conn_handle = 0;
+static bool potentiometer_chr_conn_handle_inited = false;
+static bool potentiometer_ind_status = false;
 
-/* GATT services table */
+/* Custom GATT Services table */
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
-    /* Heart rate service */
+    /* Potentiometer service */
     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
-     .uuid = &heart_rate_svc_uuid.u,
+     .uuid = &potentiometer_svc_uuid.u,
      .characteristics =
          (struct ble_gatt_chr_def[]){
-             {/* Heart rate characteristic */
-              .uuid = &heart_rate_chr_uuid.u,
-              .access_cb = heart_rate_chr_access,
+             {/* Potentiometer characteristic */
+              .uuid = &potentiometer_chr_uuid.u,
+              .access_cb = potentiometer_chr_access,
               .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_INDICATE,
-              .val_handle = &heart_rate_chr_val_handle},
+              .val_handle = &potentiometer_chr_val_handle},
              {
                  0, /* No more characteristics in this service. */
              }}},
@@ -45,13 +45,13 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
 };
 
 /* Private functions */
-static int heart_rate_chr_access(uint16_t conn_handle, uint16_t attr_handle,
+static int potentiometer_chr_access(uint16_t conn_handle, uint16_t attr_handle,
                                  struct ble_gatt_access_ctxt *ctxt, void *arg) {
     /* Local variables */
     int rc;
 
     /* Handle access events */
-    /* Note: Heart rate characteristic is read only */
+    /* Note: Potentiometer characteristic is read only */
     switch (ctxt->op) {
 
     /* Read characteristic event */
@@ -66,11 +66,11 @@ static int heart_rate_chr_access(uint16_t conn_handle, uint16_t attr_handle,
         }
 
         /* Verify attribute handle */
-        if (attr_handle == heart_rate_chr_val_handle) {
+        if (attr_handle == potentiometer_chr_val_handle) {
             /* Update access buffer value */
-            heart_rate_chr_val[1] = 16;
-            rc = os_mbuf_append(ctxt->om, &heart_rate_chr_val,
-                                sizeof(heart_rate_chr_val));
+            potentiometer_chr_val[1] = 16;
+            rc = os_mbuf_append(ctxt->om, &potentiometer_chr_val,
+                                sizeof(potentiometer_chr_val));
             return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
         }
         goto error;
@@ -83,17 +83,17 @@ static int heart_rate_chr_access(uint16_t conn_handle, uint16_t attr_handle,
 error:
     ESP_LOGE(
         TAG,
-        "unexpected access operation to heart rate characteristic, opcode: %d",
+        "unexpected access operation to potentiometer characteristic, opcode: %d",
         ctxt->op);
     return BLE_ATT_ERR_UNLIKELY;
 }
 
 /* Public functions */
-void send_heart_rate_indication(void) {
-    if (heart_rate_ind_status && heart_rate_chr_conn_handle_inited) {
-        ble_gatts_indicate(heart_rate_chr_conn_handle,
-                           heart_rate_chr_val_handle);
-        ESP_LOGI(TAG, "heart rate indication sent!");
+void send_potentiometer_indication(void) {
+    if (potentiometer_ind_status && potentiometer_chr_conn_handle_inited) {
+        ble_gatts_indicate(potentiometer_chr_conn_handle,
+                           potentiometer_chr_val_handle);
+        ESP_LOGI(TAG, "potentiometer indication sent!");
     }
 }
 
@@ -142,7 +142,7 @@ void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg) {
 
 /*
  *  GATT server subscribe event callback
- *      1. Update heart rate subscription status
+ *      1. Update potentiometer subscription status
  */
 
 void gatt_svr_subscribe_cb(struct ble_gap_event *event) {
@@ -156,11 +156,11 @@ void gatt_svr_subscribe_cb(struct ble_gap_event *event) {
     }
 
     /* Check attribute handle */
-    if (event->subscribe.attr_handle == heart_rate_chr_val_handle) {
-        /* Update heart rate subscription status */
-        heart_rate_chr_conn_handle = event->subscribe.conn_handle;
-        heart_rate_chr_conn_handle_inited = true;
-        heart_rate_ind_status = event->subscribe.cur_indicate;
+    if (event->subscribe.attr_handle == potentiometer_chr_val_handle) {
+        /* Update potentiometer subscription status */
+        potentiometer_chr_conn_handle = event->subscribe.conn_handle;
+        potentiometer_chr_conn_handle_inited = true;
+        potentiometer_ind_status = event->subscribe.cur_indicate;
     }
 }
 
@@ -174,7 +174,15 @@ int gatt_svc_init(void) {
     /* Local variables */
     int rc;
 
-    /* 1. GATT service initialization */
+    /* 1. GATT service initialization (don't mess with this)
+     * 
+     * This initializes the standard GATT Service within the GATT server
+     * Assigned value for the service is 0x1801 (and recall GAP is 0x1800).
+     * This GATT Service includes the following characteristics:
+     * - Service Changed (0x2a05)
+     * - Server Supported Features (0x2b3a)
+     * - Client Supported Features (0x2b29)
+     */
     ble_svc_gatt_init();
 
     /* 2. Update GATT services counter */

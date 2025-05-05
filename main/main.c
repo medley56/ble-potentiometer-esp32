@@ -1,13 +1,11 @@
 /* Application for distributing potentiometer values through BLE 
 
 Data is read from the ADC using the ULP FSM coprocessor
-The read values are pushed into a queue on Core 1
-Values are dequeued and published via BLE on Core 0
+The read values are published into a queue on Core 1
+Values are dequeued by a subscriber task and sent to BLE on Core 0
 */
 
 /* Standard headers */
-#include <stdio.h>
-#include <string.h>
 #include <inttypes.h>
 
 /* ESP-IDF headers */
@@ -18,10 +16,11 @@ Values are dequeued and published via BLE on Core 0
 
 /* Application module headers */
 #include "ulp_main.h"  // interface to ULP assembly file
-#include "publisher.h"
-#include "ble.h"
+#include "publisher.h"  // publishing service for potentiometer values
+#include "ble.h"  // BLE services
+#include "subscriber.h"  // subscriber task that passes potentiometer values to BLE
 
-#define QUEUE_WAIT_TICKS        pdMS_TO_TICKS(200)  // Time to wait when retrieving from queue
+#define QUEUE_WAIT_TICKS pdMS_TO_TICKS(200)  // Time to wait when retrieving from queue
 #define MAIN_LOG_NAME "MAIN"
 
 /* Task that dequeues values and advertises them with a BLE Eddystone beacon */
