@@ -1,6 +1,4 @@
 /* Implementations for publisher.h */
-#ifndef PUBLISHER_H
-#define PUBLISHER_H
 
 /* Header */
 #include "publisher.h"
@@ -31,7 +29,10 @@ extern const uint8_t ulp_main_bin_end[]   asm("_binary_ulp_main_bin_end");
 extern uint32_t ulp_last_result;
 
 
-void init_ulp_program(void)
+/* This function is called once after power-on reset, to load ULP program into
+ * RTC memory and configure the ADC.
+ */
+static void init_ulp_program(void)
 {
     esp_err_t err = ulp_load_binary(0, ulp_main_bin_start,
             (ulp_main_bin_end - ulp_main_bin_start) / sizeof(uint32_t));
@@ -65,7 +66,8 @@ void init_ulp_program(void)
 }
 
 
-void start_ulp_program(void)
+/* This function is called once during initialization. It starts the ULP FSM running. */
+static void start_ulp_program(void)
 {
     /* Start the program */
     esp_err_t err = ulp_run(&ulp_entry - RTC_SLOW_MEM);
@@ -73,7 +75,8 @@ void start_ulp_program(void)
 }
 
 
-void ulp_value_publisher(void *pvParameters)
+/* Task that checks for new values from the ULP and publishes them to a queue */
+static void ulp_value_publisher_task(void *pvParameters)
 {
     QueueHandle_t value_queue = (QueueHandle_t)pvParameters;
     TickType_t poll_period_ticks = pdMS_TO_TICKS(ADC_CHANGE_POLL_PERIOD);
@@ -99,4 +102,22 @@ void ulp_value_publisher(void *pvParameters)
 }
 
 
-#endif  // PUBLISHER_H
+void potentiometer_data_service_init(void *pQueue)
+{
+    QueueHandle_t queue = (QueueHandle_t)pQueue;
+    /* Initialize the ULP and start sampling the ADC */
+    init_ulp_program();
+    start_ulp_program();
+    ESP_LOGI(PUBLISHER_LOG_NAME, "ULP ADC-sampling program started\n");
+
+    /* Start the task that pushes ADC values sampled by the ULP to a data queue */
+    xTaskCreatePinnedToCore(
+        ulp_value_publisher_task,
+        "Publisher Task",
+        2048,
+        (void *)queue,  // Pass queue as parameter to task
+        5,
+        NULL,
+        1  // Pin to Core 1. Core 0 is doing other stuff.
+    );
+}

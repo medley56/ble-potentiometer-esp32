@@ -6,18 +6,19 @@
 /* Includes */
 #include "gatt_svc.h"
 #include "common.h"
+#include "potentiometer.h"
 
 /* Private function declarations */
 static int potentiometer_chr_access(uint16_t conn_handle, uint16_t attr_handle,
                                  struct ble_gatt_access_ctxt *ctxt, void *arg);
 
 /* Private variables */
-/* Volume Control Service (potentiometer is just a dial) */
-static const ble_uuid16_t potentiometer_svc_uuid = BLE_UUID16_INIT(0x1844);
+/* Custom potentiometer service */
+static const ble_uuid16_t potentiometer_svc_uuid = BLE_UUID16_INIT(0xFFF0);
 
-static uint8_t potentiometer_chr_val[2] = {0};
+static uint16_t potentiometer_chr_val;
 static uint16_t potentiometer_chr_val_handle;
-static const ble_uuid16_t potentiometer_chr_uuid = BLE_UUID16_INIT(0x2B7D);
+static const ble_uuid16_t potentiometer_chr_uuid = BLE_UUID16_INIT(0xFFF1);
 
 static uint16_t potentiometer_chr_conn_handle = 0;
 static bool potentiometer_chr_conn_handle_inited = false;
@@ -68,7 +69,7 @@ static int potentiometer_chr_access(uint16_t conn_handle, uint16_t attr_handle,
         /* Verify attribute handle */
         if (attr_handle == potentiometer_chr_val_handle) {
             /* Update access buffer value */
-            potentiometer_chr_val[1] = 16;
+            potentiometer_chr_val = get_potentiometer_value();
             rc = os_mbuf_append(ctxt->om, &potentiometer_chr_val,
                                 sizeof(potentiometer_chr_val));
             return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;

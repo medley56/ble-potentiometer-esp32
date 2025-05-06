@@ -7,6 +7,7 @@
 #include "common.h"
 #include "gap.h"
 #include "gatt_svc.h"
+#include "potentiometer.h"
 
 
 /* Library function declarations */
@@ -56,15 +57,15 @@ static void nimble_host_task(void *param) {
     vTaskDelete(NULL);
 }
 
-static void potentiometer_task(void *param) {
+
+static void potentiometer_task(void *pQueue) {
     /* Task entry log */
     ESP_LOGI(TAG, "potentiometer task has been started!");
 
     /* Loop forever */
-    while (1) {
-        /* Update heart rate value every 1 second */
-        // update_heart_rate();
-        ESP_LOGI(TAG, "potentiometer updated to %d", 16);
+    while (true) {
+        /* Try to pull latest value from queue */
+        update_potentiometer_value(pQueue);
 
         /* Send potentiometer indication if enabled by client via CCCD */
         send_potentiometer_indication();
@@ -79,7 +80,7 @@ static void potentiometer_task(void *param) {
 
 
 /* Function that initializes BLE task. Adapted from app_main in the example */
-void ble_init(void) {
+void ble_init(void *pQueue) {
     /* Local variables */
     int rc;
     esp_err_t ret;
@@ -131,6 +132,6 @@ void ble_init(void) {
 
     /* Start NimBLE host task thread and return */
     xTaskCreate(nimble_host_task, "NimBLE Host", 4*1024, NULL, 5, NULL);
-    xTaskCreate(potentiometer_task, "Potentiometer", 4*1024, NULL, 5, NULL);
+    xTaskCreate(potentiometer_task, "Potentiometer", 4*1024, pQueue, 5, NULL);
     return;
 }
