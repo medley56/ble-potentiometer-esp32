@@ -22,7 +22,7 @@ static const ble_uuid16_t potentiometer_chr_uuid = BLE_UUID16_INIT(0xFFF1);
 
 static uint16_t potentiometer_chr_conn_handle = 0;
 static bool potentiometer_chr_conn_handle_inited = false;
-static bool potentiometer_ind_status = false;
+static bool potentiometer_notify_status = false;
 
 /* Custom GATT Services table */
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
@@ -34,7 +34,7 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
              {/* Potentiometer characteristic */
               .uuid = &potentiometer_chr_uuid.u,
               .access_cb = potentiometer_chr_access,
-              .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_INDICATE,
+              .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
               .val_handle = &potentiometer_chr_val_handle},
              {
                  0, /* No more characteristics in this service. */
@@ -90,11 +90,11 @@ error:
 }
 
 /* Public functions */
-void send_potentiometer_indication(void) {
-    if (potentiometer_ind_status && potentiometer_chr_conn_handle_inited) {
-        ble_gatts_indicate(potentiometer_chr_conn_handle,
+void send_potentiometer_notification(void) {
+    if (potentiometer_notify_status && potentiometer_chr_conn_handle_inited) {
+        ble_gatts_notify(potentiometer_chr_conn_handle,
                            potentiometer_chr_val_handle);
-        ESP_LOGI(TAG, "potentiometer indication sent!");
+        ESP_LOGI(TAG, "potentiometer notification sent!");
     }
 }
 
@@ -161,7 +161,7 @@ void gatt_svr_subscribe_cb(struct ble_gap_event *event) {
         /* Update potentiometer subscription status */
         potentiometer_chr_conn_handle = event->subscribe.conn_handle;
         potentiometer_chr_conn_handle_inited = true;
-        potentiometer_ind_status = event->subscribe.cur_indicate;
+        potentiometer_notify_status = event->subscribe.cur_notify;
     }
 }
 

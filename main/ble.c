@@ -68,7 +68,7 @@ static void potentiometer_task(void *pQueue) {
         update_potentiometer_value(pQueue);
 
         /* Send potentiometer indication if enabled by client via CCCD */
-        send_potentiometer_indication();
+        send_potentiometer_notification();
 
         /* Sleep */
         vTaskDelay(pdMS_TO_TICKS(200));
