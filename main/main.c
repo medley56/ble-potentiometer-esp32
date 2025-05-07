@@ -16,13 +16,12 @@ Values are dequeued by a subscriber task and sent to BLE on Core 0
 
 /* Application module headers */
 #include "ulp_main.h"  // interface to ULP assembly file
-#include "publisher.h"  // publishing service for potentiometer values
+#include "producer.h"  // publishing service for potentiometer values
+#include "consumer.h"
 #include "ble.h"  // BLE services, including task that subscribes to the ADC data queue and updates the BLE value
 
 #define MAIN_LOG_NAME "MAIN"
 
-/* Task that dequeues values and advertises them with a BLE Eddystone beacon */
-void ble_beacon_advertiser(void *pvParameters);
 
 void app_main(void)
 {
@@ -40,7 +39,12 @@ void app_main(void)
     }
 
     /* Start the ULP program and the task that puts values into the queue */
-    potentiometer_data_service_init(ulp_value_queue);
+    potentiometer_data_producer_init(ulp_value_queue);
 
-    ble_init(ulp_value_queue);
+    /* Start the task that dequeues values and passes them to BLE */
+    potentiometer_data_consumer_init(ulp_value_queue);
+
+    /* Start the BLE stack that advertises, connects, and notifies of new values 
+    via a GATT service characteristic */
+    ble_init();
 }

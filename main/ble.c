@@ -3,11 +3,11 @@
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
+#include "ble.h"
 /* Includes */
 #include "common.h"
 #include "gap.h"
 #include "gatt_svc.h"
-#include "potentiometer.h"
 
 
 /* Library function declarations */
@@ -58,20 +58,17 @@ static void nimble_host_task(void *param) {
 }
 
 
-static void potentiometer_task(void *pQueue) {
+static void potentiometer_notify_task(void *) {
     /* Task entry log */
-    ESP_LOGI(TAG, "potentiometer task has been started!");
+    ESP_LOGI(TAG, "potentiometer notification task has been started!");
 
     /* Loop forever */
     while (true) {
-        /* Try to pull latest value from queue */
-        update_potentiometer_value(pQueue);
-
         /* Send potentiometer indication if enabled by client via CCCD */
         send_potentiometer_notification();
 
         /* Sleep */
-        vTaskDelay(pdMS_TO_TICKS(200));
+        vTaskDelay(pdMS_TO_TICKS(BLE_NOTIFICATION_PERIOD_MS));
     }
 
     /* Clean up at exit */
@@ -80,7 +77,7 @@ static void potentiometer_task(void *pQueue) {
 
 
 /* Function that initializes BLE task. Adapted from app_main in the example */
-void ble_init(void *pQueue) {
+void ble_init() {
     /* Local variables */
     int rc;
     esp_err_t ret;
@@ -132,6 +129,6 @@ void ble_init(void *pQueue) {
 
     /* Start NimBLE host task thread and return */
     xTaskCreate(nimble_host_task, "NimBLE Host", 4*1024, NULL, 5, NULL);
-    xTaskCreate(potentiometer_task, "Potentiometer", 4*1024, pQueue, 5, NULL);
+    xTaskCreate(potentiometer_notify_task, "Potentiometer", 4*1024, NULL, 5, NULL);
     return;
 }

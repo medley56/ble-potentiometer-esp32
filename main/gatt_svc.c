@@ -6,7 +6,7 @@
 /* Includes */
 #include "gatt_svc.h"
 #include "common.h"
-#include "potentiometer.h"
+#include "consumer.h"
 
 /* Private function declarations */
 static int potentiometer_chr_access(uint16_t conn_handle, uint16_t attr_handle,
@@ -59,10 +59,10 @@ static int potentiometer_chr_access(uint16_t conn_handle, uint16_t attr_handle,
     case BLE_GATT_ACCESS_OP_READ_CHR:
         /* Verify connection handle */
         if (conn_handle != BLE_HS_CONN_HANDLE_NONE) {
-            ESP_LOGI(TAG, "characteristic read; conn_handle=%d attr_handle=%d",
+            ESP_LOGD(TAG, "characteristic read; conn_handle=%d attr_handle=%d",
                      conn_handle, attr_handle);
         } else {
-            ESP_LOGI(TAG, "characteristic read by nimble stack; attr_handle=%d",
+            ESP_LOGD(TAG, "characteristic read by nimble stack; attr_handle=%d",
                      attr_handle);
         }
 
@@ -113,14 +113,14 @@ void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg) {
 
     /* Service register event */
     case BLE_GATT_REGISTER_OP_SVC:
-        ESP_LOGD(TAG, "registered service %s with handle=%d",
+        ESP_LOGI(TAG, "registered service %s with handle=%d",
                  ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
                  ctxt->svc.handle);
         break;
 
     /* Characteristic register event */
     case BLE_GATT_REGISTER_OP_CHR:
-        ESP_LOGD(TAG,
+        ESP_LOGI(TAG,
                  "registering characteristic %s with "
                  "def_handle=%d val_handle=%d",
                  ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf),
@@ -129,7 +129,7 @@ void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg) {
 
     /* Descriptor register event */
     case BLE_GATT_REGISTER_OP_DSC:
-        ESP_LOGD(TAG, "registering descriptor %s with handle=%d",
+        ESP_LOGI(TAG, "registering descriptor %s with handle=%d",
                  ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf),
                  ctxt->dsc.handle);
         break;

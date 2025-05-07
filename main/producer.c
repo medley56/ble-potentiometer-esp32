@@ -1,7 +1,7 @@
-/* Implementations for publisher.h */
+/* Implementations for producer.h */
 
 /* Header */
-#include "publisher.h"
+#include "producer.h"
 
 /* ESP-IDF headers */
 #include "freertos/FreeRTOS.h"
@@ -19,7 +19,7 @@
 #include "ulp_main.h"  // Generated from adc.S via configs in CMakeLists.txt
 #include "ulp/ulp_config.h"  // Configurations for adc.S as a readable header
 
-#define PUBLISHER_LOG_NAME "PUBLISHER"
+#define PRODUCER_LOG_NAME "PRODUCER"
 
 /* Location of ULP binary in the codespace */
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
@@ -53,7 +53,7 @@ static void init_ulp_program(void)
      * There are 5 of these registers available (CYC0..CYC4) but 0 is used 
      * by default on ESP32 boards. 
      */
-    ulp_set_wakeup_period(0, 200000);
+    ulp_set_wakeup_period(0, ULP_WAKEUP_PERIOD_US);
 
     /* Disconnect GPIO12 and GPIO15 to remove current drain through
      * pullup/pulldown resistors on modules which have these (e.g. ESP32-WROVER)
@@ -89,12 +89,12 @@ static void ulp_value_publisher_task(void *pvParameters)
         // Calculate if the ADC changed more than the specified tolerance
         adc_diff = (ulp_previous_result > ulp_last_result) ? (ulp_previous_result - ulp_last_result) : (ulp_last_result - ulp_previous_result);
         if (adc_diff > ADC_CHANGE_TOL) {
-            ESP_LOGI(PUBLISHER_LOG_NAME, "ADC value changed! Latest value reported by ULP program is %"PRIu32"\n", 
+            ESP_LOGI(PRODUCER_LOG_NAME, "ADC value changed! Latest value reported by ULP program is %"PRIu32"\n", 
                 ulp_last_result & UINT16_MAX);
             // Send new value to the queue for later consumption
             BaseType_t result = xQueueSendToBack(value_queue, &ulp_last_result, 0);
             if (result != pdPASS) {
-                ESP_LOGE(PUBLISHER_LOG_NAME, "Failed to push value to queue. This may mean that the subscriber is not consuming data fast enough.\n");
+                ESP_LOGE(PRODUCER_LOG_NAME, "Failed to push value to queue. This may mean that the consumer is not consuming data fast enough.\n");
             }
             ulp_previous_result = ulp_last_result;
         }
@@ -102,22 +102,21 @@ static void ulp_value_publisher_task(void *pvParameters)
 }
 
 
-void potentiometer_data_service_init(void *pQueue)
+void potentiometer_data_producer_init(void *pQueue)
 {
-    QueueHandle_t queue = (QueueHandle_t)pQueue;
     /* Initialize the ULP and start sampling the ADC */
     init_ulp_program();
     start_ulp_program();
-    ESP_LOGI(PUBLISHER_LOG_NAME, "ULP ADC-sampling program started\n");
+    ESP_LOGI(PRODUCER_LOG_NAME, "ULP ADC-sampling program started\n");
 
     /* Start the task that pushes ADC values sampled by the ULP to a data queue */
     xTaskCreatePinnedToCore(
         ulp_value_publisher_task,
-        "Publisher Task",
+        "Producer Task",
         2048,
-        (void *)queue,  // Pass queue as parameter to task
-        5,
+        pQueue,  // Pass queue as parameter to task
+        PRODUCER_PRIORITY,
         NULL,
-        1  // Pin to Core 1. Core 0 is doing other stuff.
+        PRODUCER_CORE
     );
 }

@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main.c" "publisher.c" "gap.c" "gatt_svc.c" "ble.c" "potentiometer.c"
+    SRCS "main.c" "producer.c" "gap.c" "gatt_svc.c" "ble.c" "consumer.c"
     INCLUDE_DIRS "."
     REQUIRES soc nvs_flash ulp driver bt esp_adc
     )
